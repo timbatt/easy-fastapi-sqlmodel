@@ -23,12 +23,73 @@ def create_hero(user: User, session: SessionDep) -> User:
 ```
 
 
+This takes the SQLModel integration from the [FastAPI tutorial](https://fastapi.tiangolo.com/tutorial/sql-databases/) and simplifies it down to a static DB class that can be used anywhere, without passing in the session as a dependency.  
+Instead of passing the DB session as a dependency for every route, you just need to call `DB.init()` at some point, either on startup or within your route logic. Then you can access the static `DB.session` variable whenever you need to work with the DB, wheather its directly or via a Model class (like `User` in this demo)
 
-This takes the SQLModel integration from the [FastAPI tutorial](https://fastapi.tiangolo.com/tutorial/sql-databases/) and simplifies it down to a static DB class that can be used anywhere, without passing in the session as a dependency:
+```python
+# index.py
+
+from fastapi import FastAPI
+from database import DB
+from user import User
+
+app = FastAPI()
+
+@app.on_event("startup")
+def on_startup():
+    DB.init() # This is where the DB setup happens
+
+
+@app.get("/users/create")
+async def users_create():
+    user = User.create("Blank User")
+    return user
+```
+
+You could also call `DB.init()` from within your route if you don't need to have it initiated by default:
+
+```python
+@app.get("/users")
+async def users():
+    DB.init() # Setup the DB here instead
+
+    users = User.get_all()
+    return users
+```
+
+
+```python
+# user.py
+
+from sqlmodel import Field, SQLModel, select
+from database import DB
+
+
+class UserModel(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str | None = Field(default=None)
+
+
+"""
+    Wrapper class for the UserModel. This is where the DB interactions occur.
+"""
+class User(UserModel):
+    def create(name) -> UserModel:
+        user = UserModel(name=name)
+        DB.session.add(user)
+        DB.session.commit()
+        DB.session.refresh(user)
+        return user
+
+    def get_all() -> list[UserModel]:
+        users = DB.session.exec(select(UserModel)).all()
+        return users
+    
+```
+
 
 ```python
 # database.py
-
 
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -58,73 +119,9 @@ class DB:
     def init():
         DB.create_db_and_tables()
         DB.session = DB.get_session()
+
 ```
 
-Instead of passing the DB session as a dependency for every route, you just need to call `DB.init()` at some point, either on startup or within your route logic. Then you can access the static `DB.session` variable whenever you need to work with the DB, wheather its directly or via a Model class (like `User` in this demo)
-
-
-```python
-# index.py
-
-
-from fastapi import FastAPI
-from database import DB
-from user import User
-
-app = FastAPI()
-
-@app.on_event("startup")
-def on_startup():
-    DB.init() # This is where the DB setup happens
-
-
-@app.get("/users/create")
-async def users_create():
-    user = User.create("Blank User")
-    return user
-```
-
-You could also call `DB.init()` from within your route, if you don't need to have it initiated by default:
-
-```python
-@app.get("/users")
-async def users():
-    DB.init() # Setup the DB here instead
-
-    users = User.get_all()
-    return users
-```
-
-
-```python
-# user.py
-
-
-from sqlmodel import Field, SQLModel, select
-from database import DB
-
-
-class UserModel(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str | None = Field(default=None)
-
-
-"""
-    Wrapper class for the UserModel. This is where the DB interactions occur.
-"""
-class User(UserModel):
-    def create(name) -> UserModel:
-        user = UserModel(name=name)
-        DB.session.add(user)
-        DB.session.commit()
-        DB.session.refresh(user)
-        return user
-
-    def get_all() -> list[UserModel]:
-        users = DB.session.exec(select(UserModel)).all()
-        return users
-    
-```
 
 ## Running the demo
 Clone this repo, and then install the pip dependencies.  
