@@ -7,6 +7,10 @@ class UserModel(SQLModel, table=True):
     name: str | None = Field(default=None)
 
 
+"""
+    Wrapper class for the UserModel.
+    This is where the DB interactions occur
+"""
 class User(UserModel):
     def create(name) -> UserModel:
         user = UserModel(name=name)
@@ -16,6 +20,6 @@ class User(UserModel):
         return user
 
     def get_all() -> list[UserModel]:
-        users = DB.session.exec(select(UserModel).offset(0).limit(100)).all()
+        users = DB.session.exec(select(UserModel)).all()
         return users
     
