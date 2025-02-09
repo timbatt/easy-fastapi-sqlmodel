@@ -14,7 +14,7 @@ async def users_create() -> User:
 Is much nicer than this:
 
 ```python
-@app.post("/users/create/")
+@app.get("/users/create/")
 def create_hero(user: User, session: SessionDep) -> User:
     session.add(user)
     session.commit()
